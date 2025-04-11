@@ -1,6 +1,7 @@
 import os
 import time
 from colorama import init, Fore, Style
+from typing import List, Dict
 from proxy_scraper import ProxyScraper
 
 init(autoreset=True)
@@ -27,23 +28,6 @@ class ProxyScraperWizard:
         print(Fore.GREEN + " Wizard para Coleta de Proxies de Diversas Fontes")
         print(Fore.YELLOW + "=" * 60 + Style.RESET_ALL)
         print()
-
-    def save_proxies_to_txt(self, proxies: List[Dict[str, str]], source_name: str) -> None:
-        """
-        Save proxies to a TXT file in the ./lists/ directory in ip:port format
-        
-        Args:
-            proxies: List of proxy dictionaries
-            source_name: Name of the source (used for filename)
-        """
-        os.makedirs('./lists', exist_ok=True)
-        
-        clean_name = source_name.replace('.', '_').replace('/', '_').replace(':', '_')
-        filename = f"./lists/{clean_name}.txt"
-        
-        with open(filename, 'w') as f:
-            for proxy in proxies:
-                f.write(f"{proxy['ip']}:{proxy['port']}\n")
 
     def main_menu(self):
         while True:
@@ -106,7 +90,7 @@ class ProxyScraperWizard:
             try:
                 proxies = method()
                 self.proxies_by_source[display_name] = proxies
-                self.save_proxies_to_txt(proxies, name)
+                self.scraper.save_proxies_to_txt(proxies, name)
                 print(Fore.GREEN + f"\nColeta concluída! {len(proxies)} proxies obtidos de {display_name}.")
                 print(Fore.GREEN + f"Proxies salvos em ./lists/{name}.txt" + Style.RESET_ALL)
             except Exception as e:
@@ -122,30 +106,10 @@ class ProxyScraperWizard:
         print(Fore.CYAN + "COLETANDO PROXIES DE TODAS AS FONTES" + Style.RESET_ALL)
         print(Fore.YELLOW + "\nEsta operação pode demorar alguns minutos..." + Style.RESET_ALL)
         
-        sources = [
-            ("ProxyScrape", self.scraper.scrape_proxyscrape),
-            ("Free_Proxy_List", self.scraper.scrape_free_proxy_list),
-            ("Proxy_List_Download", self.scraper.scrape_proxy_list_download),
-            ("HideMy_Name", self.scraper.scrape_hidemy_name),
-            ("Spys_One", self.scraper.scrape_spys_one),
-            ("OpenProxy_Space", self.scraper.scrape_openproxy_space),
-            ("SpeedX_Proxy_List", self.scraper.scrape_speedx_list)
-        ]
-        
-        total_proxies = 0
-        
         try:
-            for name, method in sources:
-                display_name = name.replace('_', ' ')
-                print(Fore.YELLOW + f"\nColetando de {display_name}..." + Style.RESET_ALL)
-                proxies = method()
-                self.proxies_by_source[display_name] = proxies
-                self.save_proxies_to_txt(proxies, name)
-                print(Fore.GREEN + f"Encontrados {len(proxies)} proxies")
-                total_proxies += len(proxies)
-                time.sleep(1)  # Delay entre requisições
-            
-            print(Fore.GREEN + f"\nColeta completa! Total de {total_proxies} proxies obtidos.")
+            all_proxies = self.scraper.scrape_all_sources()
+            total = sum(len(proxies) for proxies in self.scraper.proxies_by_source.values())
+            print(Fore.GREEN + f"\nColeta completa! Total de {total} proxies obtidos de todas as fontes.")
             print(Fore.GREEN + "Arquivos salvos no diretório ./lists/" + Style.RESET_ALL)
         except Exception as e:
             print(Fore.RED + f"\nErro durante a coleta: {e}" + Style.RESET_ALL)
