@@ -34,17 +34,27 @@ class ProxyScraper:
             return response
         except requests.RequestException:
             return None
-
-    def save_proxies_to_txt(self, proxies: List[Dict[str, str]], source_name: str) -> None:
-        """Salva proxies no formato IP:PORTA em arquivo .txt"""
-        os.makedirs('./lists', exist_ok=True)
-        clean_name = source_name.replace(' ', '_').replace('.', '_').replace('/', '_')
-        filename = f"./lists/{clean_name}.txt"
-        
+            
+def save_proxies_to_txt(self, proxies: List[Dict[str, str]], source_name: str) -> None:
+    """Salva proxies no formato tipo://ip:porta em arquivos organizados por tipo"""
+    os.makedirs('./lists', exist_ok=True)
+    clean_name = source_name.replace(' ', '_').replace('.', '_').replace('/', '_')
+    
+    # Organiza proxies por tipo
+    proxies_by_type = {}
+    for proxy in proxies:
+        ptype = proxy.get('type', 'http')  # Default para http se não especificado
+        if ptype not in proxies_by_type:
+            proxies_by_type[ptype] = []
+        proxies_by_type[ptype].append(proxy)
+    
+    # Salva em arquivos separados por tipo
+    for ptype, proxy_list in proxies_by_type.items():
+        filename = f"./lists/{clean_name}_{ptype}.txt"
         with open(filename, 'w') as f:
-            for proxy in proxies:
-                f.write(f"{proxy['ip']}:{proxy['port']}\n")
-
+            for proxy in proxy_list:
+                f.write(f"{ptype}://{proxy['ip']}:{proxy['port']}\n")
+                
     def scrape_proxyscrape(self) -> List[Dict[str, str]]:
         url = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
         response = self._make_request(url)
