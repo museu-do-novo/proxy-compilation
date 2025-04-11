@@ -1,4 +1,3 @@
-
 import os
 import time
 from colorama import init, Fore, Style
@@ -34,8 +33,9 @@ class ProxyScraperWizard:
             self.display_header()
             print(Fore.WHITE + "MENU PRINCIPAL:")
             print(Fore.CYAN + "1. Coletar proxies de fonte específica")
-            print(Fore.CYAN + "2. Visualizar proxies coletados")
-            print(Fore.CYAN + "3. Testar um proxy específico")
+            print(Fore.CYAN + "2. Coletar proxies de todas as fontes")
+            print(Fore.CYAN + "3. Visualizar proxies coletados")
+            print(Fore.CYAN + "4. Testar um proxy específico")
             print(Fore.RED + "0. Sair")
             print()
 
@@ -44,8 +44,10 @@ class ProxyScraperWizard:
             if choice == "1":
                 self.collect_specific_source()
             elif choice == "2":
-                self.view_proxies()
+                self.collect_all_sources()
             elif choice == "3":
+                self.view_proxies()
+            elif choice == "4":
                 self.test_single_proxy()
             elif choice == "0":
                 print(Fore.GREEN + "\nSaindo do wizard...")
@@ -86,7 +88,9 @@ class ProxyScraperWizard:
             try:
                 proxies = method()
                 self.proxies_by_source[name] = proxies
-                print(Fore.GREEN + f"\nColeta concluída! {len(proxies)} proxies obtidos de {name}." + Style.RESET_ALL)
+                self.scraper.save_proxies_to_file(proxies, name)
+                print(Fore.GREEN + f"\nColeta concluída! {len(proxies)} proxies obtidos de {name}.")
+                print(Fore.GREEN + f"Proxies salvos em ./lists/{name.replace('.', '_').replace('/', '_')}.json" + Style.RESET_ALL)
             except Exception as e:
                 print(Fore.RED + f"\nErro ao coletar de {name}: {e}" + Style.RESET_ALL)
 
@@ -94,6 +98,21 @@ class ProxyScraperWizard:
         else:
             print(Fore.RED + "\nOpção inválida!" + Style.RESET_ALL)
             time.sleep(1)
+
+    def collect_all_sources(self):
+        self.display_header()
+        print(Fore.CYAN + "COLETANDO PROXIES DE TODAS AS FONTES" + Style.RESET_ALL)
+        print(Fore.YELLOW + "\nEsta operação pode demorar alguns minutos..." + Style.RESET_ALL)
+        
+        try:
+            all_proxies = self.scraper.scrape_all_sources()
+            total = sum(len(proxies) for proxies in self.scraper.proxies_by_source.values())
+            print(Fore.GREEN + f"\nColeta completa! Total de {total} proxies obtidos de todas as fontes.")
+            print(Fore.GREEN + "Arquivos salvos no diretório ./lists/" + Style.RESET_ALL)
+        except Exception as e:
+            print(Fore.RED + f"\nErro durante a coleta: {e}" + Style.RESET_ALL)
+        
+        input("\nPressione Enter para continuar...")
 
     def view_proxies(self):
         self.display_header()
@@ -122,13 +141,13 @@ class ProxyScraperWizard:
         port = input("Porta do proxy: ").strip()
         ptype = input("Tipo (http/socks4/socks5): ").strip().lower()
 
-        print(Fore.YELLOW + f"Testando {ip}:{port} ({ptype})..." + Style.RESET_ALL)
+        print(Fore.YELLOW + f"\nTestando {ip}:{port} ({ptype})..." + Style.RESET_ALL)
         is_working = self.scraper.test_proxy(ip, port, ptype)
 
         if is_working:
-            print(Fore.GREEN + "Sucesso! O proxy está funcionando." + Style.RESET_ALL)
+            print(Fore.GREEN + "\nSucesso! O proxy está funcionando." + Style.RESET_ALL)
         else:
-            print(Fore.RED + "Falha. O proxy não respondeu corretamente." + Style.RESET_ALL)
+            print(Fore.RED + "\nFalha. O proxy não respondeu corretamente." + Style.RESET_ALL)
 
         input("\nPressione Enter para continuar...")
 
