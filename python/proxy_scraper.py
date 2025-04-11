@@ -1,9 +1,9 @@
-
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import json
 import random
+import os
 from typing import List, Dict, Optional
 
 
@@ -16,6 +16,7 @@ class ProxyScraper:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:89.0) Gecko/20100101 Firefox/89.0',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.1 Safari/605.1.15'
         ]
+        self.proxies_by_source = {}
 
     def _get_random_user_agent(self) -> str:
         return random.choice(self.user_agents)
@@ -34,6 +35,16 @@ class ProxyScraper:
         except requests.RequestException:
             return None
 
+    def save_proxies_to_txt(self, proxies: List[Dict[str, str]], source_name: str) -> None:
+        """Salva proxies no formato IP:PORTA em arquivo .txt"""
+        os.makedirs('./lists', exist_ok=True)
+        clean_name = source_name.replace(' ', '_').replace('.', '_').replace('/', '_')
+        filename = f"./lists/{clean_name}.txt"
+        
+        with open(filename, 'w') as f:
+            for proxy in proxies:
+                f.write(f"{proxy['ip']}:{proxy['port']}\n")
+
     def scrape_proxyscrape(self) -> List[Dict[str, str]]:
         url = "https://api.proxyscrape.com/v2/?request=getproxies&protocol=http&timeout=10000&country=all&ssl=all&anonymity=all"
         response = self._make_request(url)
@@ -42,7 +53,8 @@ class ProxyScraper:
             for line in response.text.splitlines():
                 if ':' in line:
                     ip, port = line.strip().split(':')
-                    proxies.append({'ip': ip, 'port': port, 'type': 'http', 'source': 'proxyscrape.com'})
+                    proxies.append({'ip': ip, 'port': port, 'type': 'http', 'source': 'ProxyScrape'})
+        self.proxies_by_source['ProxyScrape'] = proxies
         return proxies
 
     def scrape_free_proxy_list(self) -> List[Dict[str, str]]:
@@ -60,10 +72,11 @@ class ProxyScraper:
                         'type': 'https' if row['Https'] == 'yes' else 'http',
                         'country': row['Country'],
                         'anonymity': row['Anonymity'],
-                        'source': 'free-proxy-list.net'
+                        'source': 'Free Proxy List'
                     })
             except Exception:
                 pass
+        self.proxies_by_source['Free Proxy List'] = proxies
         return proxies
 
     def scrape_proxy_list_download(self) -> List[Dict[str, str]]:
@@ -76,7 +89,8 @@ class ProxyScraper:
                 for line in response.text.splitlines():
                     if ':' in line:
                         ip, port = line.strip().split(':')
-                        proxies.append({'ip': ip, 'port': port, 'type': proxy_type, 'source': 'proxy-list.download'})
+                        proxies.append({'ip': ip, 'port': port, 'type': proxy_type, 'source': 'Proxy List Download'})
+        self.proxies_by_source['Proxy List Download'] = proxies
         return proxies
 
     def scrape_hidemy_name(self) -> List[Dict[str, str]]:
@@ -97,8 +111,9 @@ class ProxyScraper:
                             'country': cols[2].text.strip(),
                             'type': cols[4].text.strip().lower(),
                             'anonymity': cols[5].text.strip(),
-                            'source': 'hidemy.name'
+                            'source': 'HideMy.Name'
                         })
+        self.proxies_by_source['HideMy.Name'] = proxies
         return proxies
 
     def scrape_spys_one(self) -> List[Dict[str, str]]:
@@ -121,8 +136,9 @@ class ProxyScraper:
                             'type': cols[2].text.strip().lower(),
                             'country': cols[3].text.strip(),
                             'anonymity': cols[4].text.strip(),
-                            'source': 'spys.one'
+                            'source': 'Spys.One'
                         })
+        self.proxies_by_source['Spys.One'] = proxies
         return proxies
 
     def scrape_openproxy_space(self) -> List[Dict[str, str]]:
@@ -138,10 +154,11 @@ class ProxyScraper:
                         'port': str(proxy.get('port')),
                         'type': proxy.get('protocol', '').lower(),
                         'country': proxy.get('country'),
-                        'source': 'openproxy.space'
+                        'source': 'OpenProxy.Space'
                     })
             except json.JSONDecodeError:
                 pass
+        self.proxies_by_source['OpenProxy.Space'] = proxies
         return proxies
 
     def scrape_speedx_list(self) -> List[Dict[str, str]]:
@@ -161,8 +178,32 @@ class ProxyScraper:
                 for line in response.text.splitlines():
                     if ':' in line:
                         ip, port = line.strip().split(':')
-                        proxies.append({'ip': ip, 'port': port, 'type': proxy_type, 'source': 'TheSpeedX'})
+                        proxies.append({'ip': ip, 'port': port, 'type': proxy_type, 'source': 'SpeedX'})
+        self.proxies_by_source['SpeedX Proxy List'] = proxies
         return proxies
+
+    def scrape_all_sources(self) -> List[Dict[str, str]]:
+        """Coleta proxies de todas as fontes e salva em arquivos separados"""
+        sources = [
+            ('ProxyScrape', self.scrape_proxyscrape),
+            ('Free Proxy List', self.scrape_free_proxy_list),
+            ('Proxy List Download', self.scrape_proxy_list_download),
+            ('HideMy.Name', self.scrape_hidemy_name),
+            ('Spys.One', self.scrape_spys_one),
+            ('OpenProxy.Space', self.scrape_openproxy_space),
+            ('SpeedX Proxy List', self.scrape_speedx_list)
+        ]
+        
+        all_proxies = []
+        for name, method in sources:
+            try:
+                proxies = method()
+                self.save_proxies_to_txt(proxies, name)
+                all_proxies.extend(proxies)
+            except Exception as e:
+                print(f"Erro ao coletar de {name}: {str(e)}")
+        
+        return all_proxies
 
     def test_proxy(self, ip: str, port: str, proxy_type: str, test_url: str = "http://www.google.com") -> bool:
         proxy_url = f"{ip}:{port}"
